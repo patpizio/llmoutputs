@@ -39,6 +39,24 @@ class LLMOutput:
         tensor_2d = self.get_logits() / temperature
         return torch.nn.Softmax(dim=1)(tensor_2d)
     
+    def token_logits(self, token, normalized=False, add_SOS_character=True):
+        """NB: If a token is out of vocabulary, it will get the score for the token '<unk>'
+        check if it works the same for models other than Flan-T5
+        """
+        if add_SOS_character:
+            token = f'{self.SOS_character}{token}'
+        token_id = self.tokenizer.convert_tokens_to_ids(token)
+        return [float(self.get_logits(normalized)[step][token_id]) for step in range(self.len_output)]
+
+    def token_proba(self, token, temperature=1.0, add_SOS_character=True):
+        """NB: If a token is out of vocabulary, it will get the score for the token '<unk>'
+        check if it works the same for models other than Flan-T5
+        """
+        if add_SOS_character:
+            token = f'{self.SOS_character}{token}'
+        token_id = self.tokenizer.convert_tokens_to_ids(token)
+        return [float(self.get_probabilities(temperature)[step][token_id]) for step in range(self.len_output)]
+        
     def top_token_ids(self, threshold=-np.inf):
         "Return the index of the tokens whose score exceeds a threshold, for each output step"
         indexes = []
@@ -78,17 +96,7 @@ class LLMOutput:
         )
         return fig  
     
-    def token_scores(self, token, temperature=1.0, softmax=False, normalized=False, add_SOS_character=True):
-        """NB: If a token is out of vocabulary, it will get the score for the token '<unk>'
-        check if it works the same for models other than Flan-T5
-        """
-        if add_SOS_character:
-            token = f'{self.SOS_character}{token}'
-        token_id = self.tokenizer.convert_tokens_to_ids(token)
-        if softmax:
-            return [float(self.get_probabilities(temperature)[step][token_id]) for step in range(self.len_output)]
-        else:
-            return [float(self.get_logits(normalized)[step][token_id]) for step in range(self.len_output)]  
+  
         
     def print_logits(self, model, normalized=True):
         # Does not work as it needs 'sequences' to have 
