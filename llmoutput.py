@@ -1,6 +1,7 @@
 import torch
 import numpy as np, transformers as trf
 from plotly.subplots import make_subplots
+from warnings import warn
 import plotly.graph_objects as go
 
 class LLMOutput:
@@ -24,11 +25,14 @@ class LLMOutput:
         else:
             self.SOS_character = 'Ġ'  # Falcon
     
-    def get_logits(self):
+    def get_logits(self, normalized=False):
         "# Return a 2D tensor, (n. ouput tokens) x (n. tokens in vocabulary)"
         tensor_3d = torch.stack(self.scores, axis=0)
         tensor_2d = tensor_3d.view(tensor_3d.shape[0], -1)
-        return tensor_2d
+        if normalized:
+            return tensor_2d/tensor_2d.max()
+        else:
+            return tensor_2d
     
     def get_probabilities(self, temperature=1.0):
         # 'scores' for a k-token output is a tuple of k 2D-tensors that only use 1 dimension. 
@@ -48,14 +52,16 @@ class LLMOutput:
                 indexes.append(candidates)
         return indexes
     
-    def plot_word_probas(self, min_score=-np.inf, softmax=True, temperature=1.0, width=600):
+    def plot_token_scores(self, min_score=-np.inf, softmax=False, normalized=False, temperature=1.0, width=600):
+        if softmax and normalized:
+            warn("Note that normalization is not applied when using softmax.")
         top_ids = self.top_token_ids(threshold=min_score)
         fig = make_subplots(rows=len(top_ids), cols=1)
         for step, candidates in enumerate(top_ids):  
             if softmax:
                 x_axis = self.get_probabilities(temperature)[step][candidates]
             else:
-                x_axis = self.get_logits()[step][candidates]
+                x_axis = self.get_logits(normalized)[step][candidates]
             fig.append_trace(
                 go.Bar(
                     y=self.tokenizer.convert_ids_to_tokens(candidates), 
@@ -72,7 +78,7 @@ class LLMOutput:
         )
         return fig  
     
-    def token_proba(self, token, temperature=1.0, softmax=True, add_SOS_character=True):
+    def token_scores(self, token, temperature=1.0, softmax=False, normalized=False, add_SOS_character=True):
         """NB: If a token is out of vocabulary, it will get the score for the token '<unk>'
         check if it works the same for models other than Flan-T5
         """
@@ -82,7 +88,7 @@ class LLMOutput:
         if softmax:
             return [float(self.get_probabilities(temperature)[step][token_id]) for step in range(self.len_output)]
         else:
-            return [float(self.get_logits()[step][token_id]) for step in range(self.len_output)]  
+            return [float(self.get_logits(normalized)[step][token_id]) for step in range(self.len_output)]  
         
     def print_logits(self, model, normalized=True):
         # Does not work as it needs 'sequences' to have 
