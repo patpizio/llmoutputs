@@ -20,7 +20,7 @@ class LLMOutput:
                                        trf.models.llama.tokenization_llama_fast.LlamaTokenizer,
                                        trf.models.t5.tokenization_t5_fast.T5TokenizerFast,
                                       )):
-            self.SOS_character = '▁'  # LLama and T5
+            self.SOS_character = '▁'  # LLama and T5 (SentencePiece)
         else:
             self.SOS_character = 'Ġ'  # Falcon
     
