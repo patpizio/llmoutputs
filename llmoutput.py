@@ -25,28 +25,28 @@ class LLMOutput:
         else:
             self.SOS_character = 'Ġ'  # Falcon
     
-    def get_logits(self, normalized=False):
+    def get_logits(self, normalized=False, scaled_by=1.0):
         "# Return a 2D tensor, (n. ouput tokens) x (n. tokens in vocabulary)"
         tensor_3d = torch.stack(self.scores, axis=0)
         tensor_2d = tensor_3d.view(tensor_3d.shape[0], -1)
         if normalized:
             return tensor_2d/tensor_2d.max()
         else:
-            return tensor_2d
+            return tensor_2d/scaled_by
     
     def get_probabilities(self, temperature=1.0):
         # 'scores' for a k-token output is a tuple of k 2D-tensors that only use 1 dimension. 
-        tensor_2d = self.get_logits() / temperature
+        tensor_2d = self.get_logits(normalized=False, scaled_by=temperature)
         return torch.nn.Softmax(dim=1)(tensor_2d)
     
-    def token_logits(self, token, normalized=False, add_SOS_character=True):
+    def token_logits(self, token, normalized=False, scaled_by=1.0, add_SOS_character=True):
         """NB: If a token is out of vocabulary, it will get the score for the token '<unk>'
         check if it works the same for models other than Flan-T5
         """
         if add_SOS_character:
             token = f'{self.SOS_character}{token}'
         token_id = self.tokenizer.convert_tokens_to_ids(token)
-        return [float(self.get_logits(normalized)[step][token_id]) for step in range(self.len_output)]
+        return [float(self.get_logits(normalized, scaled_by)[step][token_id]) for step in range(self.len_output)]
 
     def token_proba(self, token, temperature=1.0, add_SOS_character=True):
         """NB: If a token is out of vocabulary, it will get the score for the token '<unk>'
