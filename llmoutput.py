@@ -56,24 +56,26 @@ class LLMOutput:
             token = f'{self.SOS_character}{token}'
         token_id = self.tokenizer.convert_tokens_to_ids(token)
         return [float(self.get_probabilities(temperature)[step][token_id]) for step in range(self.len_output)]
-        
-    def top_token_ids(self, threshold=-np.inf):
+    
+    def top_token_ids(self, max_tokens=None, min_score=-np.inf):
         "Return the index of the tokens whose score exceeds a threshold, for each output step"
         indexes = []
+        if not max_tokens:
+            max_tokens = 0
         for tensor in self.scores:
-            candidates = np.argwhere(tensor.flatten().cpu() > threshold).numpy()[0]
+            candidates = np.argwhere(tensor.flatten().cpu() > min_score).numpy()[0]
             ordering_mask = np.argsort(tensor[0][candidates].cpu())
-            candidates = candidates[ordering_mask]
+            candidates = candidates[ordering_mask][-max_tokens:]
             if not isinstance(candidates, np.ndarray):
                 indexes.append(np.array([candidates]))
             else:
                 indexes.append(candidates)
         return indexes
     
-    def plot_token_scores(self, min_score=-np.inf, softmax=False, normalized=False, temperature=1.0, width=600):
+    def plot_token_scores(self, max_tokens=None, min_score=-np.inf, softmax=False, normalized=False, temperature=1.0, width=600):
         if softmax and normalized:
             warn("Note that normalization is not applied when using softmax.")
-        top_ids = self.top_token_ids(threshold=min_score)
+        top_ids = self.top_token_ids(max_tokens=max_tokens, min_score=min_score)
         fig = make_subplots(rows=len(top_ids), cols=1)
         for step, candidates in enumerate(top_ids):  
             if softmax:
